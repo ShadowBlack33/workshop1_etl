@@ -1,4 +1,3 @@
-
 __pycache__/
 *.py[cod]
 *$py.class
@@ -10,12 +9,11 @@ venv/
 .DS_Store
 Thumbs.db
 
-data/*.csv
-!data/README.md
-
+# DW local (no subir)
 dw/*.sqlite
-visuals/*.png
 
-.ipynb_checkpoints/
-.vscode/
-.idea/
+# Datos crudos (opcional no subir)
+data/*.csv
+
+# ¡NO ignores visuals! Deben quedar en GitHub
+# (sin reglas para bloquear visuals/*.png)
