@@ -1,4 +1,3 @@
-# main.py — ETL → KPIs (bonitos en consola) → Gráficas (PNG + HTML)
 # TODO sale del DW; el CSV solo se usa para poblar el DW en run_etl()
 
 import os
