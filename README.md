@@ -5,10 +5,10 @@
 [![matplotlib](https://img.shields.io/badge/matplotlib-3.x-11557c)](https://matplotlib.org/)
 [![Rich](https://img.shields.io/badge/Rich-Console_Formatting-3fb950)](https://github.com/Textualize/rich)
 
-Individual **ETL project in Python** that builds a **Data Warehouse (SQLite)** with a **star schema** from a candidates dataset, then computes **KPIs** and generates **charts (PNG only)**.
+Individual **ETL project in Python** that builds a **Data Warehouse (SQLite)** using a **star schema** from a candidates dataset, then computes **KPIs** and generates **charts (PNG only)**.
 
-> **Important:** *All metrics and charts are computed from the DW only.*  
-> The CSV is used **only** to populate the DW (as RAW staging).
+> **Important:** *All metrics and charts are computed from the Data Warehouse only.*  
+> The CSV is used **only** to populate the DW (as a RAW staging table).
 
 ---
 
@@ -17,20 +17,22 @@ Individual **ETL project in Python** that builds a **Data Warehouse (SQLite)** w
 - [Preview](#preview)
 - [Features](#features)
 - [Architecture](#architecture)
+- [Star Schema – Design Rationale](#star-schema--design-rationale)
 - [Repository Structure](#repository-structure)
 - [Requirements](#requirements)
 - [Install & Run](#install--run)
 - [KPIs](#kpis)
+- [SQL Reference](#sql-reference)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
 ---
 
 ## 🎯 Goal
-- Implement an **ETL pipeline** (Extract → Transform → Load).
-- Persist **RAW** and **CLEAN** stages **inside** the DW.
+- Implement a clear **ETL pipeline** (Extract → Transform → Load).
+- Persist both **RAW** and **CLEAN** stages **inside** the DW.
 - Model a **star schema** (dimensions + fact).
-- Compute **hiring KPIs** and generate **charts (PNG)**.
+- Compute **hiring KPIs** and generate **PNG charts**.
 
 ---
 
@@ -50,12 +52,12 @@ Individual **ETL project in Python** that builds a **Data Warehouse (SQLite)** w
 ---
 
 ## ✨ Features
-- **DW-driven**: KPIs/charts query **SQLite** (not the CSV).
-- **RAW staging** in DW: exact CSV snapshot (`RawCandidates`).
-- **CLEAN** in DW: normalized and typed (`CleanCandidates`).
-- **Star schema**: `Dim*` + `FactHires`.
+- **DW-driven analytics:** KPIs/charts query **SQLite** (not the CSV).
+- **RAW staging** in DW: exact CSV snapshot → `RawCandidates`.
+- **CLEAN** in DW: normalized/typed dataset → `CleanCandidates`.
+- **Star schema** in DW: `Dim*` + `FactHires`.
 - **Console KPIs** with **Rich**.
-- **Charts** as **PNG** (Matplotlib) → `visuals/`.
+- **PNG charts** with **Matplotlib** → `visuals/`.
 
 ---
 
@@ -139,6 +141,19 @@ erDiagram
 
 ---
 
+## Star Schema – Design Rationale
+
+* **Fact grain:** one row per application (candidate × application date) with `code_challenge_score`, `technical_interview_score`, and `hired`.
+* **Dimensions:**
+
+  * `DimCandidate` — attributes for segmentation (seniority, `yoe`), stable identifiers (`email`).
+  * `DimTechnology` — technology associated to the process.
+  * `DimCountry` — geographic breakdown and focus countries.
+  * `DimDate` — standardized calendar cuts (year/month/day).
+* **Why this works:** directly answers KPIs (by tech/year/seniority/country) and supports derived metrics (hire rate, averages) with simple, efficient SQL.
+
+---
+
 ## 📁 Repository Structure
 
 ```
@@ -148,7 +163,7 @@ workshop1_etl/
 ├─ dw/
 │  └─ workshop1_dw.sqlite     # (generated) — the SQLite DW
 ├─ sql/
-│  └─ queries.sql
+│  └─ queries.sql             # KPI queries (reference)
 ├─ src/
 │  ├─ __init__.py
 │  ├─ extract.py              # CSV → DataFrame
@@ -172,7 +187,7 @@ workshop1_etl/
   pip install -r requirements.txt
   ```
 
-  (Uses: `pandas`, `matplotlib`, `rich`)
+  Uses: `pandas`, `matplotlib`, `rich`
 
 ---
 
@@ -201,7 +216,9 @@ Outputs:
 
 ---
 
-## 📊 KPIs (DW only)
+## 📊 KPIs
+
+All KPIs are computed from **FactHires** joined with dimensions:
 
 1. **Hires by technology** — Hires, Total, Rate %
 2. **Hires by year** — Hires, Total, Rate %
@@ -212,12 +229,19 @@ Outputs:
 
 ---
 
+## 🧾 SQL Reference
+
+See `sql/queries.sql` for the exact SQL used for the KPIs.
+
+---
+
 ## 🛠️ Troubleshooting
 
-* **CSV delimiter** must be `;` and **encoding** UTF-8.
-* **Dates**: `YYYY-MM-DD`.
-* **Windows line-endings notice** (`LF → CRLF`): harmless.
-* **`database is locked`**: close any app using the `.sqlite` and rerun.
+* CSV delimiter **must be `;`** and encoding **UTF-8**.
+* Dates **YYYY-MM-DD**.
+* Windows line-endings notice (`LF → CRLF`): harmless.
+* `sqlite3.OperationalError: database is locked` → close any app using the `.sqlite` and rerun.
+* If you changed CSV headers, the pipeline automatically normalizes them; ensure the CSV has at least: first/last name, email, seniority, `yoe`, technology, country, application date, code/interview scores.
 
 ---
 
