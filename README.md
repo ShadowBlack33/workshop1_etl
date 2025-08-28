@@ -1,3 +1,4 @@
+````md
 # Workshop-1 · ETL → Data Warehouse (Star Schema) → KPIs & Charts
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)](https://www.python.org/)
@@ -64,29 +65,29 @@ Individual **ETL project in Python** that builds a **Data Warehouse (SQLite)** w
 ### Data Flow
 ```mermaid
 flowchart LR
-  A[CSV: data/candidates.csv]
-  B[RawCandidates (DW)]
-  C[CleanCandidates (DW)]
-  D[DimCandidate]
-  E[DimTechnology]
-  F[DimCountry]
-  G[DimDate]
-  H[FactHires]
-  I[KPIs (SQL)]
-  J[Charts (PNG)]
+  A["CSV: data/candidates.csv"];
+  B["RawCandidates (DW)"];
+  C["CleanCandidates (DW)"];
+  D["DimCandidate"];
+  E["DimTechnology"];
+  F["DimCountry"];
+  G["DimDate"];
+  H["FactHires"];
+  I["KPIs (SQL)"];
+  J["Charts (PNG)"];
 
-  A -->|Extract| B
-  B -->|Transform| C
-  C --> D
-  C --> E
-  C --> F
-  C --> G
-  D --> H
-  E --> H
-  F --> H
-  G --> H
-  H --> I
-  H --> J
+  A -->|Extract| B;
+  B -->|Transform| C;
+  C --> D;
+  C --> E;
+  C --> F;
+  C --> G;
+  D --> H;
+  E --> H;
+  F --> H;
+  G --> H;
+  H --> I;
+  H --> J;
 ````
 
 ### Star Schema (ER)
