@@ -5,7 +5,6 @@
 [![matplotlib](https://img.shields.io/badge/matplotlib-3.x-11557c)](https://matplotlib.org/)
 [![Plotly](https://img.shields.io/badge/Plotly-5.x-3e4ba9)](https://plotly.com/python/)
 [![Rich](https://img.shields.io/badge/Rich-Console_Formatting-3fb950)](https://github.com/Textualize/rich)
-[![Build & Pages](https://github.com/ShadowBlack33/workshop1_etl/actions/workflows/pages.yml/badge.svg)](https://github.com/ShadowBlack33/workshop1_etl/actions/workflows/pages.yml)
 
 Individual **ETL project in Python** that builds a **Data Warehouse (SQLite)** with a **star schema** from a candidates dataset, then computes **KPIs** and generates **charts** (PNG & interactive HTML).  
 > **Important:** *All metrics and charts are computed from the DW only.* The CSV is **only** used to populate the DW during the ETL.
