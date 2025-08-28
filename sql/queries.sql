@@ -1,5 +1,4 @@
-
--- KPI 1: Hires por tecnología
+-- KPI 1: Hires by technology
 SELECT t.technology, SUM(f.hired) AS hires, COUNT(*) AS total,
        ROUND(100.0*SUM(f.hired)/COUNT(*),2) AS hire_rate_pct
 FROM FactHires f
@@ -7,7 +6,7 @@ JOIN DimTechnology t ON f.technology_id = t.technology_id
 GROUP BY t.technology
 ORDER BY hires DESC;
 
--- KPI 2: Hires por año
+-- KPI 2: Hires by year
 SELECT d.year, SUM(f.hired) AS hires, COUNT(*) AS total,
        ROUND(100.0*SUM(f.hired)/COUNT(*),2) AS hire_rate_pct
 FROM FactHires f
@@ -15,7 +14,7 @@ JOIN DimDate d ON f.date_id = d.date_id
 GROUP BY d.year
 ORDER BY d.year;
 
--- KPI 3: Hires por seniority
+-- KPI 3: Hires by seniority
 SELECT c.seniority, SUM(f.hired) AS hires, COUNT(*) AS total,
        ROUND(100.0*SUM(f.hired)/COUNT(*),2) AS hire_rate_pct
 FROM FactHires f
@@ -23,7 +22,7 @@ JOIN DimCandidate c ON f.candidate_id = c.candidate_id
 GROUP BY c.seniority
 ORDER BY hires DESC;
 
--- KPI 4: Hires por país a lo largo de los años (USA, Brazil, Colombia, Ecuador)
+-- KPI 4: Hires by country over years (US, Brazil, Colombia, Ecuador)
 SELECT d.year, co.country, SUM(f.hired) AS hires
 FROM FactHires f
 JOIN DimDate d ON f.date_id = d.date_id
@@ -32,7 +31,7 @@ WHERE co.country IN ('United States','Brazil','Colombia','Ecuador')
 GROUP BY d.year, co.country
 ORDER BY d.year, hires DESC;
 
--- Extra A: Hire rate por país
+-- Extra KPI: Hire rate by country (%)
 SELECT co.country, SUM(f.hired) AS hires, COUNT(*) AS total,
        ROUND(100.0*SUM(f.hired)/COUNT(*),2) AS hire_rate_pct
 FROM FactHires f
@@ -40,7 +39,7 @@ JOIN DimCountry co ON f.country_id = co.country_id
 GROUP BY co.country
 ORDER BY hire_rate_pct DESC;
 
--- Extra B: Promedios de puntajes por contratado vs no
+-- Extra KPI: Average scores (Hired vs Not)
 SELECT hired,
        ROUND(AVG(code_challenge_score),2) AS avg_code_challenge,
        ROUND(AVG(technical_interview_score),2) AS avg_tech_interview
