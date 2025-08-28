@@ -1,27 +1,23 @@
-# TODO sale del DW; el CSV solo se usa para poblar el DW en run_etl()
-
 import os
 import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
-
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
-import plotly.express as px
-
 from src.extract import extract_candidates
 from src.transform import transform
-from src.load import load_star
+from src.load import reset_warehouse, load_raw_candidates, load_clean_candidates, build_star_from_clean
 
-# Rutas
 DATASET_PATH = os.environ.get("INPUT_CSV", "data/candidates.csv")
 SQLITE_PATH  = os.environ.get("SQLITE_PATH", "dw/workshop1_dw.sqlite")
 
+# ←—— desactiva HTML de Plotly
+GENERATE_HTML = bool(int(os.environ.get("GENERATE_HTML", "0")))
+
 console = Console()
 
-# Consultas KPI (todas contra el DW)
 SQLS = {
     "kpi_hires_by_technology": """
         SELECT t.technology, SUM(f.hired) AS hires, COUNT(*) AS total,
@@ -66,7 +62,6 @@ SQLS = {
     """
 }
 
-# Títulos cortos (ES)
 TITULOS_ES = {
     "kpi_hires_by_technology": "Contrataciones por tecnología",
     "kpi_hires_by_year": "Contrataciones por año",
@@ -76,7 +71,12 @@ TITULOS_ES = {
     "extra_avg_scores_by_hired": "Promedios de puntajes (Sí vs No)",
 }
 
-# ---------- Utilidades ----------
+def ensure_dirs():
+    os.makedirs("visuals", exist_ok=True)
+    os.makedirs(os.path.dirname(SQLITE_PATH), exist_ok=True)
+    if GENERATE_HTML:
+        os.makedirs("docs", exist_ok=True)
+
 def query_df(sql_key: str) -> pd.DataFrame:
     conn = sqlite3.connect(SQLITE_PATH)
     try:
@@ -85,7 +85,6 @@ def query_df(sql_key: str) -> pd.DataFrame:
         conn.close()
 
 def rich_print_df(df: pd.DataFrame, title: str, max_rows: int | None = None):
-    """Imprime DataFrame como tabla Rich con formateo básico."""
     if max_rows:
         df = df.head(max_rows)
     table = Table(title=title, show_lines=False, header_style="bold")
@@ -94,30 +93,27 @@ def rich_print_df(df: pd.DataFrame, title: str, max_rows: int | None = None):
     for _, row in df.iterrows():
         vals = []
         for v in row:
-            if isinstance(v, float):
-                # redondeo suave
-                vals.append(f"{v:,.2f}")
-            else:
-                vals.append(str(v))
+            vals.append(f"{v:,.2f}" if isinstance(v, float) else str(v))
         table.add_row(*vals)
     console.print(table)
 
-def ensure_dirs():
-    os.makedirs("visuals", exist_ok=True)
-    os.makedirs("docs", exist_ok=True)  # para GitHub Pages (HTML)
-
-# ---------- Flujo ----------
-def run_etl():
-    console.rule("[bold]ETL (poblar DW desde CSV)")
-    df = extract_candidates(DATASET_PATH)
-    df_t = transform(df)
-    os.makedirs(os.path.dirname(SQLITE_PATH), exist_ok=True)
+def run_pipeline():
+    ensure_dirs()
+    console.rule("[bold]DW Reset + Carga RAW")
     conn = sqlite3.connect(SQLITE_PATH)
     try:
-        load_star(conn, df_t)
+        reset_warehouse(conn)
+        df_raw = extract_candidates(DATASET_PATH)
+        load_raw_candidates(conn, df_raw)
+        console.print(Panel.fit("[bold green]RawCandidates[/bold green] cargada en el DW"))
+        df_raw_dw = pd.read_sql("SELECT * FROM RawCandidates;", conn)
+        df_clean = transform(df_raw_dw)
+        load_clean_candidates(conn, df_clean)
+        console.print(Panel.fit("[bold green]CleanCandidates[/bold green] creada en el DW"))
+        build_star_from_clean(conn)
+        console.print(Panel.fit("[bold green]Esquema estrella[/bold green] listo en el DW"))
     finally:
         conn.close()
-    console.print(Panel.fit(f"DW listo en: [bold]{SQLITE_PATH}[/bold]"))
 
 def print_kpis():
     console.rule("[bold]KPIs (desde el DW)")
@@ -132,42 +128,32 @@ def print_kpis():
     for key in orden:
         titulo = TITULOS_ES.get(key, key)
         df = query_df(key)
-
-        # Renombrar/ordenar para que luzca mejor (sin cambiar la consulta)
         if key == "kpi_hires_by_technology":
-            df = df.rename(columns={
-                "technology":"Tecnología","hires":"Contrataciones",
-                "total":"Total","hire_rate_pct":"Tasa_%"
-            })
+            df = df.rename(columns={"technology":"Tecnología","hires":"Contrataciones","total":"Total","hire_rate_pct":"Tasa_%"})
             df["Tasa_%"] = pd.to_numeric(df["Tasa_%"], errors="coerce").round(1)
             rich_print_df(df, f"{titulo} (Top 15)", max_rows=15)
-
         elif key == "kpi_hires_by_year":
             df = df.rename(columns={"year":"Año","hires":"Contrataciones","total":"Total","hire_rate_pct":"Tasa_%"})
             df["Tasa_%"] = pd.to_numeric(df["Tasa_%"], errors="coerce").round(1)
             df = df.sort_values("Año")
             rich_print_df(df, titulo)
-
         elif key == "kpi_hires_by_seniority":
             df = df.rename(columns={"seniority":"Seniority","hires":"Contrataciones","total":"Total","hire_rate_pct":"Tasa_%"})
             df["Seniority"] = df["Seniority"].fillna("Desconocido")
             df["Tasa_%"] = pd.to_numeric(df["Tasa_%"], errors="coerce").round(1)
             rich_print_df(df, titulo)
-
         elif key == "kpi_hires_country_year":
             if not df.empty:
                 piv = df.pivot(index="year", columns="country", values="hires").fillna(0).astype(int)
                 piv = piv.rename_axis(None, axis=1).rename_axis("Año", axis=0).sort_index().reset_index()
                 rich_print_df(piv, titulo)
             else:
-                console.print(Panel.fit("Sin datos para (United States, Brazil, Colombia, Ecuador)."))
-
+                console.print(Panel.fit("No hay datos para (United States, Brazil, Colombia, Ecuador)."))
         elif key == "extra_hire_rate_by_country":
             df = df.rename(columns={"country":"País","hires":"Contrataciones","total":"Total","hire_rate_pct":"Tasa_%"})
             df["Tasa_%"] = pd.to_numeric(df["Tasa_%"], errors="coerce").round(1)
             df = df.sort_values("Tasa_%", ascending=False).reset_index(drop=True)
             rich_print_df(df, f"{titulo} (Top 10)", max_rows=10)
-
         elif key == "extra_avg_scores_by_hired":
             df = df.replace({"hired": {1:"Sí", 0:"No"}})
             df = df.rename(columns={"hired":"Contratado","avg_code_challenge":"Prom_CC","avg_tech_interview":"Prom_Ent_Téc"})
@@ -177,14 +163,10 @@ def print_kpis():
 
 def save_charts():
     console.rule("[bold]Gráficas (desde el DW)")
-    ensure_dirs()
 
-    # 1) Tecnología (Top 10) — PNG + HTML
     df_tech = query_df("kpi_hires_by_technology")
     if not df_tech.empty:
         top = df_tech.nlargest(10, "hires")
-
-        # PNG (Matplotlib)
         plt.figure(figsize=(9,5))
         plt.bar(top["technology"], top["hires"])
         plt.xticks(rotation=45, ha="right")
@@ -195,15 +177,9 @@ def save_charts():
         plt.savefig("visuals/contrataciones_tecnologia.png")
         plt.close()
 
-        # HTML (Plotly)
-        fig = px.bar(top, x="technology", y="hires", title="Contrataciones por tecnología (Top 10)")
-        fig.write_html("docs/contrataciones_tecnologia.html", include_plotlyjs="cdn")
-
-    # 2) Año — PNG + HTML
     df_year = query_df("kpi_hires_by_year")
     if not df_year.empty:
         df_year = df_year.sort_values("year")
-
         plt.figure(figsize=(9,5))
         plt.plot(df_year["year"], df_year["hires"], marker="o")
         plt.title("Contrataciones por año")
@@ -213,15 +189,10 @@ def save_charts():
         plt.savefig("visuals/contrataciones_anio.png")
         plt.close()
 
-        fig = px.line(df_year, x="year", y="hires", markers=True, title="Contrataciones por año")
-        fig.write_html("docs/contrataciones_anio.html", include_plotlyjs="cdn")
-
-    # 3) Seniority — PNG + HTML
     df_sen = query_df("kpi_hires_by_seniority")
     if not df_sen.empty:
         df_sen["seniority"] = df_sen["seniority"].fillna("Desconocido")
         df_sen = df_sen.sort_values("hires", ascending=False)
-
         plt.figure(figsize=(9,5))
         plt.bar(df_sen["seniority"], df_sen["hires"])
         plt.xticks(rotation=45, ha="right")
@@ -232,14 +203,9 @@ def save_charts():
         plt.savefig("visuals/contrataciones_seniority.png")
         plt.close()
 
-        fig = px.bar(df_sen, x="seniority", y="hires", title="Contrataciones por seniority")
-        fig.write_html("docs/contrataciones_seniority.html", include_plotlyjs="cdn")
-
-    # 4) País × Año — PNG + HTML
     df_cy = query_df("kpi_hires_country_year")
     if not df_cy.empty:
         piv = df_cy.pivot(index="year", columns="country", values="hires").sort_index()
-
         plt.figure(figsize=(9,5))
         for col in piv.columns:
             plt.plot(piv.index, piv[col], marker="o", label=col)
@@ -251,14 +217,13 @@ def save_charts():
         plt.savefig("visuals/contrataciones_pais_anio.png")
         plt.close()
 
-        fig = px.line(df_cy, x="year", y="hires", color="country", markers=True,
-                      title="Contrataciones por país a lo largo de los años")
-        fig.write_html("docs/contrataciones_pais_anio.html", include_plotlyjs="cdn")
-
-    console.print(Panel.fit("PNG en [bold]visuals/[/bold] • HTML en [bold]docs/[/bold] (sirve para GitHub Pages)"))
+    msg = "PNG en visuals/"
+    if GENERATE_HTML:
+        msg += " • HTML en docs/"
+    console.print(Panel.fit(msg))
 
 if __name__ == "__main__":
-    run_etl()
+    run_pipeline()
     print_kpis()
     save_charts()
     console.rule("[bold green]Listo[/bold green]")
