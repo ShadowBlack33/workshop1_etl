@@ -1,4 +1,3 @@
-````md
 # Workshop-1 · ETL → Data Warehouse (Star Schema) → KPIs & Charts
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)](https://www.python.org/)
