@@ -12,7 +12,6 @@ from src.load import reset_warehouse, load_raw_candidates, load_clean_candidates
 
 DATASET_PATH = os.environ.get("INPUT_CSV", "data/candidates.csv")
 SQLITE_PATH  = os.environ.get("SQLITE_PATH", "dw/workshop1_dw.sqlite")
-
 GENERATE_HTML = bool(int(os.environ.get("GENERATE_HTML", "0")))
 
 console = Console()
