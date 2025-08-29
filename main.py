@@ -186,7 +186,7 @@ def save_charts():
         plt.xlabel("Año"); plt.ylabel("Contrataciones")
         plt.grid(True, axis="y", linestyle="--", alpha=0.4)
         plt.tight_layout()
-        plt.savefig("visuals/contrataciones_anio.png")
+        plt.savefig("visuals/contrataciones_año.png")
         plt.close()
 
     df_sen = query_df("kpi_hires_by_seniority")
@@ -214,7 +214,7 @@ def save_charts():
         plt.legend(title="País", ncol=2, frameon=False)
         plt.grid(True, axis="y", linestyle="--", alpha=0.4)
         plt.tight_layout()
-        plt.savefig("visuals/contrataciones_pais_anio.png")
+        plt.savefig("visuals/contrataciones_pais_año.png")
         plt.close()
 
     msg = "PNG en visuals/"
